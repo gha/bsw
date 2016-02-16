@@ -29,10 +29,7 @@ func main() {
     }
     defer g.Close()
 
-    g.SetLayout(listLayout)
-    if err = SetMenuLayout(g); err != nil {
-        log.Fatal(err)
-    }
+    g.SetLayout(setLayout)
     go watchTubes(g)
 
     if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
@@ -44,7 +41,7 @@ func main() {
     }
 }
 
-func listLayout(g *gocui.Gui) error {
+func setLayout(g *gocui.Gui) error {
     maxX, maxY := g.Size()
     if v, err := g.SetView("tubes", 0, 0, maxX-1, maxY-3); err != nil {
         if err != gocui.ErrUnknownView {
@@ -54,11 +51,6 @@ func listLayout(g *gocui.Gui) error {
         PrintTubeList(v)
     }
 
-    return nil
-}
-
-func SetMenuLayout(g *gocui.Gui) error {
-    maxX, maxY := g.Size()
     if v, err := g.SetView("menu", 0, maxY-3, maxX-1, maxY-1); err != nil {
         if err != gocui.ErrUnknownView {
             return err
@@ -67,9 +59,7 @@ func SetMenuLayout(g *gocui.Gui) error {
         PrintMenu(v)
     }
 
-    _, err := g.SetViewOnTop("menu")
-
-    return err
+    return nil
 }
 
 func reloadMenu(g *gocui.Gui) error {
