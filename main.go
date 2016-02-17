@@ -45,6 +45,10 @@ func main() {
         log.Fatal(err)
     }
 
+    if err := g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, useTube); err != nil {
+        log.Fatal(err)
+    }
+
     if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
         log.Fatal(err)
     }
@@ -90,6 +94,20 @@ func reloadMenu(g *gocui.Gui) error {
     return err
 }
 
+func reloadTubes(g *gocui.Gui) error {
+    v, err := g.View("tubes")
+    if err != nil {
+        return err
+    }
+
+    //Clear the current tube list
+    v.Clear()
+    //Print the new tube list
+    PrintTubeList(v)
+    //Check the cursor hasn't fallen off the bottom
+    return MoveTubeCursor(g, 0, 0)
+}
+
 func watchTubes(g *gocui.Gui) {
     for {
         select {
@@ -100,19 +118,7 @@ func watchTubes(g *gocui.Gui) {
                 watch = true
                 //Refresh tube list
                 g.Execute(func(g *gocui.Gui) error {
-                    v, err := g.View("tubes")
-                    if err != nil {
-                        return err
-                    }
-
-                    //Clear the current tube list
-                    v.Clear()
-                    //Print the new tube list
-                    PrintTubeList(v)
-                    //Check the cursor hasn't fallen off the bottom
-                    err = MoveTubeCursor(g, 0, 0)
-
-                    return nil
+                    return reloadTubes(g)
                 })
 
                 _ = reloadMenu(g);
@@ -126,6 +132,23 @@ func moveCursorUp(g *gocui.Gui, v *gocui.View) error {
 
 func moveCursorDown(g *gocui.Gui, v *gocui.View) error {
     return MoveTubeCursor(g, 0, 1)
+}
+
+func useTube(g *gocui.Gui, v *gocui.View) error {
+    v, err := g.View("tubes")
+    if err != nil {
+        return err
+    }
+
+    _, cy := v.Cursor()
+
+    tubes := []string{
+        cTubes.Names[cy-1],
+    }
+
+    cTubes.Use(tubes)
+
+    return reloadTubes(g)
 }
 
 func quit(g *gocui.Gui, v *gocui.View) error {

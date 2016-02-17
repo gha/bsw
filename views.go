@@ -6,14 +6,16 @@ import (
 )
 
 func PrintTubeList(v *gocui.View) {
-        //Reload the tube stats
-        cTubes.UseAll()
-
         line := fmt.Sprintf("%-35s %-22s %-22s", "Tube", "ready/delayed/buried", "waiting/watching/using")
         fmt.Fprintln(v, line)
 
         v.Highlight = true
         v.Wrap      = true
+
+        if cTubes.All {
+            //Reload the tube stats
+            cTubes.UseAll()
+        }
 
         for _, tube := range cTubes.Conns {
             stats, _ := tube.Stats()
@@ -25,7 +27,7 @@ func PrintTubeList(v *gocui.View) {
 }
 
 func PrintMenu(v *gocui.View) {
-    line := fmt.Sprintf("%s | %s", "Exit (Ctrl C)", "Use Tube (Enter)")
+    line := fmt.Sprintf("%s | %s", "Exit (Ctrl C)", "Use Tube (Tab)")
     fmt.Fprintln(v, line)
 }
 

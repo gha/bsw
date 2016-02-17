@@ -25,6 +25,18 @@ func (t *Tubes) UseAll() {
     return
 }
 
+func (t *Tubes) Use(ts []string) {
+    t.Reset()
+    t.All = false
+
+    for _, tube := range ts {
+        t.Names = append(t.Names, tube)
+        t.Conns = append(t.Conns, beanstalk.Tube{conn, tube})
+    }
+
+    return
+}
+
 func (t *Tubes) Reset() {
     t.Names = t.Names[:0]
     t.Conns = t.Conns[:0]
