@@ -27,7 +27,12 @@ func PrintTubeList(v *gocui.View) {
 }
 
 func PrintMenu(v *gocui.View) {
-    line := fmt.Sprintf("%s | %s", "Exit (Ctrl C)", "Use Tube (Tab)")
+    tubeSelector := "Use Tube (Tab)"
+    if !cTubes.All {
+        tubeSelector = "Use All (Backspace)"
+    }
+
+    line := fmt.Sprintf("%s | %s", "Exit (Ctrl C)", tubeSelector)
     fmt.Fprintln(v, line)
 }
 

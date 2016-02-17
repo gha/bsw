@@ -49,6 +49,10 @@ func main() {
         log.Fatal(err)
     }
 
+    if err := g.SetKeybinding("", gocui.KeyBackspace2, gocui.ModNone, useAllTubes); err != nil {
+        log.Fatal(err)
+    }
+
     if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
         log.Fatal(err)
     }
@@ -147,6 +151,12 @@ func useTube(g *gocui.Gui, v *gocui.View) error {
     }
 
     cTubes.Use(tubes)
+
+    return reloadTubes(g)
+}
+
+func useAllTubes(g *gocui.Gui, v *gocui.View) error {
+    cTubes.UseAll()
 
     return reloadTubes(g)
 }
