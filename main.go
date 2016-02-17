@@ -30,9 +30,18 @@ func main() {
     defer g.Close()
 
     g.SetLayout(setLayout)
+    g.Cursor = true
     go watchTubes(g)
 
     if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
+        log.Fatal(err)
+    }
+
+    if err := g.SetKeybinding("", gocui.KeyArrowUp, gocui.ModNone, moveCursorUp); err != nil {
+        log.Fatal(err)
+    }
+
+    if err := g.SetKeybinding("", gocui.KeyArrowDown, gocui.ModNone, moveCursorDown); err != nil {
         log.Fatal(err)
     }
 
@@ -49,6 +58,11 @@ func setLayout(g *gocui.Gui) error {
         }
 
         PrintTubeList(v)
+
+        //Move the cursor to the first tube
+        if err = MoveTubeCursor(g, 0, 1); err != nil {
+            return err
+        }
     }
 
     if v, err := g.SetView("menu", 0, maxY-3, maxX-1, maxY-1); err != nil {
@@ -91,8 +105,12 @@ func watchTubes(g *gocui.Gui) {
                         return err
                     }
 
+                    //Clear the current tube list
                     v.Clear()
+                    //Print the new tube list
                     PrintTubeList(v)
+                    //Check the cursor hasn't fallen off the bottom
+                    err = MoveTubeCursor(g, 0, 0)
 
                     return nil
                 })
@@ -100,6 +118,14 @@ func watchTubes(g *gocui.Gui) {
                 _ = reloadMenu(g);
         }
     }
+}
+
+func moveCursorUp(g *gocui.Gui, v *gocui.View) error {
+    return MoveTubeCursor(g, 0, -1)
+}
+
+func moveCursorDown(g *gocui.Gui, v *gocui.View) error {
+    return MoveTubeCursor(g, 0, 1)
 }
 
 func quit(g *gocui.Gui, v *gocui.View) error {
