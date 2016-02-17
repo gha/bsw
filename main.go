@@ -45,11 +45,7 @@ func main() {
         log.Fatal(err)
     }
 
-    if err := g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, useTube); err != nil {
-        log.Fatal(err)
-    }
-
-    if err := g.SetKeybinding("", gocui.KeyBackspace2, gocui.ModNone, useAllTubes); err != nil {
+    if err := g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, toggleUseTube); err != nil {
         log.Fatal(err)
     }
 
@@ -138,27 +134,33 @@ func moveCursorDown(g *gocui.Gui, v *gocui.View) error {
     return MoveTubeCursor(g, 0, 1)
 }
 
-func useTube(g *gocui.Gui, v *gocui.View) error {
-    v, err := g.View("tubes")
-    if err != nil {
+func toggleUseTube(g *gocui.Gui, v *gocui.View) error {
+    if cTubes.All {
+        v, err := g.View("tubes")
+        if err != nil {
+            return err
+        }
+
+        _, cy := v.Cursor()
+
+        tubes := []string{
+            cTubes.Names[cy-1],
+        }
+
+        cTubes.Use(tubes)
+    } else {
+        cTubes.UseAll()
+    }
+
+    if err := reloadTubes(g); err != nil {
         return err
     }
 
-    _, cy := v.Cursor()
-
-    tubes := []string{
-        cTubes.Names[cy-1],
+    if err := reloadMenu(g); err != nil {
+        return err
     }
 
-    cTubes.Use(tubes)
-
-    return reloadTubes(g)
-}
-
-func useAllTubes(g *gocui.Gui, v *gocui.View) error {
-    cTubes.UseAll()
-
-    return reloadTubes(g)
+    return nil
 }
 
 func quit(g *gocui.Gui, v *gocui.View) error {

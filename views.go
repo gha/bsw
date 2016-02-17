@@ -29,7 +29,7 @@ func PrintTubeList(v *gocui.View) {
 func PrintMenu(v *gocui.View) {
     tubeSelector := "Use Tube (Tab)"
     if !cTubes.All {
-        tubeSelector = "Use All (Backspace)"
+        tubeSelector = "Use All (Tab)"
     }
 
     line := fmt.Sprintf("%s | %s", "Exit (Ctrl C)", tubeSelector)
