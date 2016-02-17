@@ -29,25 +29,11 @@ func main() {
     }
     defer g.Close()
 
+    setKeyBindings(g)
+
     g.SetLayout(setLayout)
     g.Cursor = true
     go watchTubes(g)
-
-    if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
-        log.Fatal(err)
-    }
-
-    if err := g.SetKeybinding("", gocui.KeyArrowUp, gocui.ModNone, moveCursorUp); err != nil {
-        log.Fatal(err)
-    }
-
-    if err := g.SetKeybinding("", gocui.KeyArrowDown, gocui.ModNone, moveCursorDown); err != nil {
-        log.Fatal(err)
-    }
-
-    if err := g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, toggleUseTube); err != nil {
-        log.Fatal(err)
-    }
 
     if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
         log.Fatal(err)
@@ -78,6 +64,24 @@ func setLayout(g *gocui.Gui) error {
     }
 
     return nil
+}
+
+func setKeyBindings(g *gocui.Gui) {
+    if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
+        log.Fatal(err)
+    }
+
+    if err := g.SetKeybinding("", gocui.KeyArrowUp, gocui.ModNone, moveCursorUp); err != nil {
+        log.Fatal(err)
+    }
+
+    if err := g.SetKeybinding("", gocui.KeyArrowDown, gocui.ModNone, moveCursorDown); err != nil {
+        log.Fatal(err)
+    }
+
+    if err := g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, toggleUseTube); err != nil {
+        log.Fatal(err)
+    }
 }
 
 func reloadMenu(g *gocui.Gui) error {
@@ -124,47 +128,4 @@ func watchTubes(g *gocui.Gui) {
                 _ = reloadMenu(g);
         }
     }
-}
-
-func moveCursorUp(g *gocui.Gui, v *gocui.View) error {
-    return MoveTubeCursor(g, 0, -1)
-}
-
-func moveCursorDown(g *gocui.Gui, v *gocui.View) error {
-    return MoveTubeCursor(g, 0, 1)
-}
-
-func toggleUseTube(g *gocui.Gui, v *gocui.View) error {
-    if cTubes.All {
-        v, err := g.View("tubes")
-        if err != nil {
-            return err
-        }
-
-        _, cy := v.Cursor()
-
-        tubes := []string{
-            cTubes.Names[cy-1],
-        }
-
-        cTubes.Use(tubes)
-    } else {
-        cTubes.UseAll()
-    }
-
-    if err := reloadTubes(g); err != nil {
-        return err
-    }
-
-    if err := reloadMenu(g); err != nil {
-        return err
-    }
-
-    return nil
-}
-
-func quit(g *gocui.Gui, v *gocui.View) error {
-    stop <- true
-
-    return gocui.ErrQuit
 }
