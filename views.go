@@ -44,7 +44,7 @@ func MoveTubeCursor(g *gocui.Gui, mx, my int) error {
     //If the current cursor exceeds the bounds of the view, move it back
     //This usually happens if the bottom tube is highlighed and a tube drops off the list
     if cx > maxX || cy > maxY {
-        return tv.SetCursor(maxX, maxY)
+        return tv.SetCursor(0, maxY)
     }
 
     //Update the cursor with the new position
