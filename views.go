@@ -13,7 +13,7 @@ func PrintTubeList(v *gocui.View) {
         v.Wrap      = true
 
         if cTubes.All {
-            //Reload the tube stats
+            //Reload the tube stats - will detect new tubes and drop removed tubes
             cTubes.UseAll()
         }
 

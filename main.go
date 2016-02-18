@@ -3,6 +3,7 @@ package main
 import (
     "log"
     "time"
+    "flag"
     "github.com/jroimartin/gocui"
     "github.com/kr/beanstalk"
 )
@@ -12,11 +13,14 @@ var (
     cTubes Tubes
     watch = false
     stop = make(chan bool)
+    host = flag.String("host", "127.0.0.1:11300", "Beanstalk host address")
 )
 
 func main() {
+    flag.Parse()
+
     var err error
-    if conn, err = beanstalk.Dial("tcp", "127.0.0.1:11300"); err != nil {
+    if conn, err = beanstalk.Dial("tcp", *host); err != nil {
         log.Fatal(err)
     }
 
