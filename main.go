@@ -14,6 +14,7 @@ var (
     watch = false
     stop = make(chan bool)
     host = flag.String("host", "127.0.0.1:11300", "Beanstalk host address")
+    refreshRate = flag.Int("refresh", 1, "Refresh rate of the tube list (seconds)")
 )
 
 func main() {
@@ -122,7 +123,7 @@ func watchTubes(g *gocui.Gui) {
             case <-stop:
                 watch = false
                 return
-            case <-time.After(1 * time.Second):
+            case <-time.After(time.Duration(*refreshRate) * time.Second):
                 watch = true
                 //Refresh tube list
                 g.Execute(func(g *gocui.Gui) error {
