@@ -2,6 +2,7 @@ package main
 
 import (
     "log"
+    "log/syslog"
     "time"
     "flag"
     "github.com/jroimartin/gocui"
@@ -14,15 +15,26 @@ var (
     watch = false
     stop = make(chan bool)
     host = flag.String("host", "127.0.0.1:11300", "Beanstalk host address")
+    refreshRate = flag.Int("refresh", 1, "Refresh rate of the tube list (seconds)")
+    debug = flag.Bool("debug", false, "Enable debug logging")
+    logWriter *syslog.Writer
 )
 
 func main() {
+    var err error
+
+    logWriter, err = syslog.New(syslog.LOG_INFO, "bsw")
+    if err != nil {
+        log.Fatal(err)
+    }
+    log.SetOutput(logWriter)
+
     flag.Parse()
 
-    var err error
     if conn, err = beanstalk.Dial("tcp", *host); err != nil {
         log.Fatal(err)
     }
+    debugLog("Connected to beanstalk")
 
     //Use all tubes by default
     cTubes.UseAll()
@@ -34,10 +46,14 @@ func main() {
     defer g.Close()
 
     setKeyBindings(g)
+    debugLog("Set keybindings")
 
     g.SetLayout(setLayout)
+    debugLog("Set layout")
     g.Cursor = true
     go watchTubes(g)
+
+    debugLog("Starting main loop")
 
     if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
         log.Fatal(err)
@@ -112,8 +128,8 @@ func reloadTubes(g *gocui.Gui) error {
     v.Clear()
     //Print the new tube list
     PrintTubeList(v)
-    //Check the cursor hasn't fallen off the bottom
-    return MoveTubeCursor(g, 0, 0)
+    //Refresh the cursor
+    return RefreshCursor(g)
 }
 
 func watchTubes(g *gocui.Gui) {
@@ -122,7 +138,7 @@ func watchTubes(g *gocui.Gui) {
             case <-stop:
                 watch = false
                 return
-            case <-time.After(1 * time.Second):
+            case <-time.After(time.Duration(*refreshRate) * time.Second):
                 watch = true
                 //Refresh tube list
                 g.Execute(func(g *gocui.Gui) error {
@@ -131,5 +147,11 @@ func watchTubes(g *gocui.Gui) {
 
                 _ = reloadMenu(g);
         }
+    }
+}
+
+func debugLog(s ...interface{}) {
+    if *debug {
+        log.Print(s...)
     }
 }
