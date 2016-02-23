@@ -130,8 +130,6 @@ func reloadTubes(g *gocui.Gui) error {
     PrintTubeList(v)
     //Refresh the cursor
     return RefreshCursor(g)
-    //Check the cursor hasn't fallen off the bottom
-    //return MoveTubeCursor(g, 0, 0)
 }
 
 func watchTubes(g *gocui.Gui) {
