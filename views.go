@@ -42,25 +42,51 @@ func MoveTubeCursor(g *gocui.Gui, mx, my int) error {
         return err
     }
 
-    maxX, maxY := tv.Size()
-    //Set the max height to the number of tubes so we cant scroll past the last tube
-    maxY        = len(cTubes.Conns)
-    //Get the current cursor position
-    cx, cy     := tv.Cursor()
+    cx, cy := tv.Cursor()
+    ox, oy := tv.Origin()
+    ny := cy + my
 
-    //If the current cursor exceeds the bounds of the view, move it back
-    //This usually happens if the bottom tube is highlighed and a tube drops off the list
-    if cx > maxX || cy > maxY {
-        return tv.SetCursor(0, maxY)
-    }
-
-    //Update the cursor with the new position
-    cx, cy      = cx + mx, cy + my
-
-    //If the new cursor exceeds the bounds of the view dont move it
-    if cx < 0 || cx > maxX || cy < 1 || cy > maxY {
+    //Check the cursor isn't trying to move above the first tube
+    if ny < 0 && oy == 0 {
         return nil
     }
 
-    return tv.SetCursor(cx, cy)
+    //Check the cursor isn't trying to move past the last tube
+    if ny + oy > len(cTubes.Conns) && ny > cy {
+        return nil
+    }
+
+    if err = tv.SetCursor(cx, ny); err != nil {
+        //If we've moved to an invalid point, update the origin
+        if err = tv.SetOrigin(ox, oy + my); err != nil {
+            return err
+        }
+    }
+
+    return nil
+}
+
+func RefreshCursor(g *gocui.Gui) error {
+    tv, err := g.View("tubes")
+    if err != nil {
+        return err
+    }
+
+    _, cy := tv.Cursor()
+    _, oy := tv.Origin()
+
+    if cy + oy > len(cTubes.Conns) {
+        debugLog("Resetting cursor: cy: ", cy, " oy: ", oy, " t: ", len(cTubes.Conns))
+
+        //Temporary fix for the cursor dropping off the bottom of the list
+        if err = tv.SetCursor(0, 1); err != nil {
+            return err
+        }
+
+        if err = tv.SetOrigin(0, 0); err != nil {
+            return err
+        }
+    }
+
+    return nil
 }
