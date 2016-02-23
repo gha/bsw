@@ -47,7 +47,7 @@ func MoveTubeCursor(g *gocui.Gui, mx, my int) error {
     ny := cy + my
 
     //Check the cursor isn't trying to move above the first tube
-    if ny < 0 && oy == 0 {
+    if ny < 1 && oy == 0 {
         return nil
     }
 
