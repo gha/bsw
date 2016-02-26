@@ -18,6 +18,11 @@ var (
     refreshRate = flag.Int("refresh", 1, "Refresh rate of the tube list (seconds)")
     debug = flag.Bool("debug", false, "Enable debug logging")
     logWriter *syslog.Writer
+    cmdMode = false
+)
+
+const (
+    cmdPrefix = ": "
 )
 
 func main() {
@@ -50,6 +55,8 @@ func main() {
 
     g.SetLayout(setLayout)
     debugLog("Set layout")
+    g.Editor = gocui.EditorFunc(cmdEditor)
+    debugLog("Set editor")
     g.Cursor = true
     go watchTubes(g)
 
@@ -57,6 +64,23 @@ func main() {
 
     if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
         log.Fatal(err)
+    }
+}
+
+func cmdEditor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+    switch {
+    case ch != 0 && mod == 0:
+        v.EditWrite(ch)
+    case key == gocui.KeySpace:
+        v.EditWrite(' ')
+    case key == gocui.KeyBackspace || key == gocui.KeyBackspace2:
+        v.EditDelete(true)
+    case key == gocui.KeyDelete:
+        v.EditDelete(false)
+    case key == gocui.KeyArrowLeft:
+        v.MoveCursor(-1, 0, false)
+    case key == gocui.KeyArrowRight:
+        v.MoveCursor(1, 0, false)
     }
 }
 
@@ -102,6 +126,18 @@ func setKeyBindings(g *gocui.Gui) {
     if err := g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, toggleUseTube); err != nil {
         log.Fatal(err)
     }
+
+    if err := g.SetKeybinding("", gocui.KeyCtrlT, gocui.ModNone, toggleCmdMode); err != nil {
+        log.Fatal(err)
+    }
+
+    if err := g.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, runCmd); err != nil {
+        log.Fatal(err)
+    }
+
+    if err := g.SetKeybinding("", gocui.KeyEsc, gocui.ModNone, exitCmdMode); err != nil {
+        log.Fatal(err)
+    }
 }
 
 func reloadMenu(g *gocui.Gui) error {
@@ -112,6 +148,12 @@ func reloadMenu(g *gocui.Gui) error {
 
     v.Clear()
     PrintMenu(v)
+
+    if cmdMode {
+        if err = v.SetCursor(2, 0); err != nil {
+            return err
+        }
+    }
 
     _, err = g.SetViewOnTop("menu")
 
@@ -145,7 +187,10 @@ func watchTubes(g *gocui.Gui) {
                     return reloadTubes(g)
                 })
 
-                _ = reloadMenu(g);
+                //Reload the menu if we're not in cmd mode
+                if !cmdMode {
+                    _ = reloadMenu(g);
+                }
         }
     }
 }

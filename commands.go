@@ -1,6 +1,7 @@
 package main
 
 import (
+    "strings"
     "github.com/jroimartin/gocui"
 )
 
@@ -36,6 +37,51 @@ func toggleUseTube(g *gocui.Gui, v *gocui.View) error {
 
     if err := reloadMenu(g); err != nil {
         return err
+    }
+
+    return nil
+}
+
+func toggleCmdMode(g *gocui.Gui, v *gocui.View) error {
+    var nv string
+
+    if !cmdMode {
+        cmdMode = true
+        g.Cursor = true
+        nv = "menu"
+    } else {
+        cmdMode = false
+        g.Cursor = false
+        nv = "tubes"
+    }
+
+    if err := reloadMenu(g); err != nil {
+        return err
+    }
+
+    return g.SetCurrentView(nv)
+}
+
+func runCmd(g *gocui.Gui, v *gocui.View) error {
+    if !cmdMode {
+        return nil
+    }
+
+    v, err := g.View("menu")
+    if err != nil {
+        return err
+    }
+
+    vb := v.ViewBuffer()
+    cmd := strings.TrimSpace(strings.TrimPrefix(vb, cmdPrefix))
+    debugLog("Sent cmd: ", cmd)
+
+    return reloadMenu(g)
+}
+
+func exitCmdMode(g *gocui.Gui, v *gocui.View) error {
+    if cmdMode {
+        return toggleCmdMode(g, v)
     }
 
     return nil

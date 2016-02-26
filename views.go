@@ -11,6 +11,7 @@ func PrintTubeList(v *gocui.View) {
 
         v.Highlight = true
         v.Wrap      = true
+        v.Editable  = false
 
         if cTubes.All {
             //Reload the tube stats - will detect new tubes and drop removed tubes
@@ -27,13 +28,19 @@ func PrintTubeList(v *gocui.View) {
 }
 
 func PrintMenu(v *gocui.View) {
-    tubeSelector := "Use Tube (Tab)"
-    if !cTubes.All {
-        tubeSelector = "Use All (Tab)"
-    }
+    v.Editable = true
 
-    line := fmt.Sprintf("%s | %s", "Exit (Ctrl C)", tubeSelector)
-    fmt.Fprintln(v, line)
+    if !cmdMode {
+        tubeSelector := "Use Tube (Tab)"
+        if !cTubes.All {
+            tubeSelector = "Use All (Tab)"
+        }
+
+        line := fmt.Sprintf("%s | %s | %s", "Exit (Ctrl C)", tubeSelector, "Toggle Cmd Mode (Ctrl T)")
+        fmt.Fprintln(v, line)
+    } else {
+        fmt.Fprintln(v, cmdPrefix)
+    }
 }
 
 func MoveTubeCursor(g *gocui.Gui, mx, my int) error {
