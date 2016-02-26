@@ -26,6 +26,11 @@ const (
     cmdPrefix = "(%s) : "
 )
 
+func init() {
+    //Set the inital page to 1
+    cTubes.Page = 1
+}
+
 func main() {
     var err error
 
@@ -125,6 +130,14 @@ func setKeyBindings(g *gocui.Gui) {
     }
 
     if err := g.SetKeybinding("", gocui.KeyCtrlT, gocui.ModNone, toggleCmdMode); err != nil {
+        log.Fatal(err)
+    }
+
+    if err := g.SetKeybinding("", gocui.KeyCtrlN, gocui.ModNone, nextPage); err != nil {
+        log.Fatal(err)
+    }
+
+    if err := g.SetKeybinding("", gocui.KeyCtrlP, gocui.ModNone, prevPage); err != nil {
         log.Fatal(err)
     }
 

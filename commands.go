@@ -57,6 +57,22 @@ func toggleCmdMode(g *gocui.Gui, v *gocui.View) error {
     return g.SetCurrentView(nv)
 }
 
+func nextPage(g *gocui.Gui, v *gocui.View) error {
+    if cmdMode {
+        return nil
+    }
+
+    return ChangePage(g, 1)
+}
+
+func prevPage(g *gocui.Gui, v *gocui.View) error {
+    if cmdMode {
+        return nil
+    }
+
+    return ChangePage(g, -1)
+}
+
 func runCmd(g *gocui.Gui, v *gocui.View) error {
     if !cmdMode {
         return nil
