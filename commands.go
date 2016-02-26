@@ -2,41 +2,21 @@ package main
 
 import (
     "strings"
+    "fmt"
     "github.com/jroimartin/gocui"
 )
 
 func moveCursorUp(g *gocui.Gui, v *gocui.View) error {
-    return MoveTubeCursor(g, 0, -1)
+    if !cmdMode {
+        return MoveTubeCursor(g, 0, -1)
+    }
+
+    return nil
 }
 
 func moveCursorDown(g *gocui.Gui, v *gocui.View) error {
-    return MoveTubeCursor(g, 0, 1)
-}
-
-func toggleUseTube(g *gocui.Gui, v *gocui.View) error {
-    if cTubes.All {
-        v, err := g.View("tubes")
-        if err != nil {
-            return err
-        }
-
-        _, cy := v.Cursor()
-
-        tubes := []string{
-            cTubes.Names[cy-1],
-        }
-
-        cTubes.Use(tubes)
-    } else {
-        cTubes.UseAll()
-    }
-
-    if err := reloadTubes(g); err != nil {
-        return err
-    }
-
-    if err := reloadMenu(g); err != nil {
-        return err
+    if !cmdMode {
+        return MoveTubeCursor(g, 0, 1)
     }
 
     return nil
@@ -49,10 +29,25 @@ func toggleCmdMode(g *gocui.Gui, v *gocui.View) error {
         cmdMode = true
         g.Cursor = true
         nv = "menu"
+
+        //Clear the tube list for command responses
+        tv, err := g.View("tubes")
+        if err != nil {
+            return err
+        }
+
+        tv.Clear()
+
+        PrintCmd(tv, fmt.Sprintf("Running commands on %s:\n\n", cTubes.Selected))
     } else {
         cmdMode = false
         g.Cursor = false
         nv = "tubes"
+
+        //Reload the tube list
+        if err := reloadTubes(g); err != nil {
+            return err
+        }
     }
 
     if err := reloadMenu(g); err != nil {
@@ -73,8 +68,20 @@ func runCmd(g *gocui.Gui, v *gocui.View) error {
     }
 
     vb := v.ViewBuffer()
-    cmd := strings.TrimSpace(strings.TrimPrefix(vb, cmdPrefix))
-    debugLog("Sent cmd: ", cmd)
+    cmd := strings.TrimSpace(strings.TrimPrefix(vb, fmt.Sprintf(cmdPrefix, cTubes.Selected)))
+
+    if cmd == "" {
+        return nil
+    }
+
+    debugLog("Received cmd: ", cmd)
+
+    tv, err := g.View("tubes")
+    if err != nil {
+        return err
+    }
+
+    PrintCmd(tv, fmt.Sprintf("%s:\n", cmd))
 
     return reloadMenu(g)
 }

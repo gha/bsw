@@ -5,6 +5,7 @@ import (
     "log/syslog"
     "time"
     "flag"
+    "fmt"
     "github.com/jroimartin/gocui"
     "github.com/kr/beanstalk"
 )
@@ -22,7 +23,7 @@ var (
 )
 
 const (
-    cmdPrefix = ": "
+    cmdPrefix = "(%s) : "
 )
 
 func main() {
@@ -123,10 +124,6 @@ func setKeyBindings(g *gocui.Gui) {
         log.Fatal(err)
     }
 
-    if err := g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, toggleUseTube); err != nil {
-        log.Fatal(err)
-    }
-
     if err := g.SetKeybinding("", gocui.KeyCtrlT, gocui.ModNone, toggleCmdMode); err != nil {
         log.Fatal(err)
     }
@@ -150,7 +147,8 @@ func reloadMenu(g *gocui.Gui) error {
     PrintMenu(v)
 
     if cmdMode {
-        if err = v.SetCursor(2, 0); err != nil {
+        prefix := fmt.Sprintf(cmdPrefix, cTubes.Selected)
+        if err = v.SetCursor(len(prefix), 0); err != nil {
             return err
         }
     }
@@ -181,15 +179,16 @@ func watchTubes(g *gocui.Gui) {
                 watch = false
                 return
             case <-time.After(time.Duration(*refreshRate) * time.Second):
-                watch = true
-                //Refresh tube list
-                g.Execute(func(g *gocui.Gui) error {
-                    return reloadTubes(g)
-                })
-
-                //Reload the menu if we're not in cmd mode
+                //Pause reloads while we're in cmd mode, this could cause weird issues
+                //with tubes disappearing when a command is run
                 if !cmdMode {
-                    _ = reloadMenu(g);
+                    watch = true
+                    //Refresh tube list
+                    g.Execute(func(g *gocui.Gui) error {
+                        return reloadTubes(g)
+                    })
+
+                    _ = reloadMenu(g)
                 }
         }
     }

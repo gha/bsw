@@ -7,29 +7,16 @@ import (
 )
 
 type Tubes struct {
-    Names []string
-    Conns []beanstalk.Tube
-    All   bool
+    Names    []string
+    Conns    []beanstalk.Tube
+    Selected string
 }
 
 func (t *Tubes) UseAll() {
     t.Reset()
-    t.All = true
 
     allTubes, _ := conn.ListTubes()
     for _, tube := range allTubes {
-        t.Names = append(t.Names, tube)
-        t.Conns = append(t.Conns, beanstalk.Tube{conn, tube})
-    }
-
-    return
-}
-
-func (t *Tubes) Use(ts []string) {
-    t.Reset()
-    t.All = false
-
-    for _, tube := range ts {
         t.Names = append(t.Names, tube)
         t.Conns = append(t.Conns, beanstalk.Tube{conn, tube})
     }
