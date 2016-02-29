@@ -3,6 +3,7 @@ package main
 import (
     "strings"
     "errors"
+    "strconv"
     "github.com/jroimartin/gocui"
 )
 
@@ -82,7 +83,8 @@ func MoveTubeCursor(g *gocui.Gui, mx, my int) error {
     }
 
     //Set the selected tube to the currently highlighted row
-    cTubes.Selected = cTubes.Names[ny-1]
+    cTubes.SelectedIdx = ny-1
+    cTubes.Selected = cTubes.Names[cTubes.SelectedIdx]
     debugLog("Set tube to: ", cTubes.Selected)
 
     return nil
@@ -128,8 +130,28 @@ func ClearTube(_ *gocui.View, a []string) error {
     return nil
 }
 
-func NextJob(_ *gocui.View, a []string) error {
+func NextJob(v *gocui.View, a []string) error {
     debugLog("Getting next ", a[0], " job on tube ", cTubes.Selected)
+
+    var id uint64
+    var body []byte
+    var err error
+
+    switch a[0] {
+    case "ready":
+        id, body, err = cTubes.Conns[cTubes.SelectedIdx].PeekReady()
+    case "delayed":
+        id, body, err = cTubes.Conns[cTubes.SelectedIdx].PeekDelayed()
+    case "buried":
+        id, body, err = cTubes.Conns[cTubes.SelectedIdx].PeekBuried()
+    }
+    if err != nil {
+        return err
+    }
+
+    PrintString(v, strconv.FormatUint(id, 10))
+    PrintLine(v, "")
+    PrintLine(v, string(body))
 
     return nil
 }

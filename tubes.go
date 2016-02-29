@@ -7,11 +7,12 @@ import (
 )
 
 type Tubes struct {
-    Names    []string
-    Conns    []beanstalk.Tube
-    Selected string
-    Pages    int
-    Page     int
+    Names       []string
+    Conns       []beanstalk.Tube
+    SelectedIdx int
+    Selected    string
+    Pages       int
+    Page        int
 }
 
 func (t *Tubes) UseAll() {
