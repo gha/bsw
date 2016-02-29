@@ -2,116 +2,134 @@ package main
 
 import (
     "strings"
-    "fmt"
+    "errors"
     "github.com/jroimartin/gocui"
 )
 
-func moveCursorUp(g *gocui.Gui, v *gocui.View) error {
-    if !cmdMode {
-        return MoveTubeCursor(g, 0, -1)
-    }
-
-    return nil
+type Cmd struct {
+    CmdString string
+    Handler   CmdHandler
+    Args      []string
 }
 
-func moveCursorDown(g *gocui.Gui, v *gocui.View) error {
-    if !cmdMode {
-        return MoveTubeCursor(g, 0, 1)
-    }
+type CmdHandler func(*gocui.View, []string) error
 
-    return nil
+var jobStates = map[string]bool{
+    "ready":   true,
+    "delayed": true,
+    "buried":  true,
 }
 
-func toggleCmdMode(g *gocui.Gui, v *gocui.View) error {
-    var nv string
+func ParseCmd(c string) (cmd Cmd, err error) {
+    parts := strings.Split(c, " ")
 
-    if !cmdMode {
-        cmdMode = true
-        g.Cursor = true
-        nv = "menu"
-
-        //Clear the tube list for command responses
-        tv, err := g.View("tubes")
-        if err != nil {
-            return err
+    switch parts[0] {
+    case "help":
+        if len(parts) != 1 {
+            return cmd, errors.New("Invalid command. Usage 'help'")
         }
 
-        tv.Clear()
-
-        PrintCmd(tv, fmt.Sprintf("Running commands on %s:\n\n", cTubes.Selected))
-    } else {
-        cmdMode = false
-        g.Cursor = false
-        nv = "tubes"
-
-        //Reload the tube list
-        if err := reloadTubes(g); err != nil {
-            return err
+        cmd.CmdString = c
+        cmd.Handler   = Help
+        cmd.Args      = []string{}
+    case "clear":
+        if len(parts) != 2 || !jobStates[parts[1]] {
+            return cmd, errors.New("Invalid command. Usage 'clear <ready/delayed/buried>'")
         }
+
+        cmd.CmdString = c
+        cmd.Handler   = ClearTube
+        cmd.Args      = []string{parts[1]}
+    case "next":
+        if len(parts) != 2 || !jobStates[parts[1]] {
+            return cmd, errors.New("Invalid command. Usage 'next <ready/delayed/buried>'")
+        }
+
+        cmd.CmdString = c
+        cmd.Handler   = NextJob
+        cmd.Args      = []string{parts[1]}
+    default:
+        return cmd, errors.New("Invalid command. Type help for a list of commands")
     }
 
-    if err := reloadMenu(g); err != nil {
-        return err
-    }
-
-    return g.SetCurrentView(nv)
+    return cmd, err
 }
 
-func nextPage(g *gocui.Gui, v *gocui.View) error {
+func (c *Cmd) Run(v *gocui.View) error {
+    return c.Handler(v, c.Args)
+}
+
+func MoveTubeCursor(g *gocui.Gui, mx, my int) error {
     if cmdMode {
         return nil
     }
-
-    return ChangePage(g, 1)
-}
-
-func prevPage(g *gocui.Gui, v *gocui.View) error {
-    if cmdMode {
-        return nil
-    }
-
-    return ChangePage(g, -1)
-}
-
-func runCmd(g *gocui.Gui, v *gocui.View) error {
-    if !cmdMode {
-        return nil
-    }
-
-    v, err := g.View("menu")
-    if err != nil {
-        return err
-    }
-
-    vb := v.ViewBuffer()
-    cmd := strings.TrimSpace(strings.TrimPrefix(vb, fmt.Sprintf(cmdPrefix, cTubes.Selected)))
-
-    if cmd == "" {
-        return nil
-    }
-
-    debugLog("Received cmd: ", cmd)
 
     tv, err := g.View("tubes")
     if err != nil {
         return err
     }
 
-    PrintCmd(tv, fmt.Sprintf("%s:\n", cmd))
+    cx, cy := tv.Cursor()
+    ny := cy + my
 
-    return reloadMenu(g)
+    //Check the cursor isn't trying to move above the first tube or past the last tube
+    if ny < 1 || ny > len(cTubes.Conns) {
+        return nil
+    }
+
+    if err = tv.SetCursor(cx, ny); err != nil {
+        return err
+    }
+
+    //Set the selected tube to the currently highlighted row
+    cTubes.Selected = cTubes.Names[ny-1]
+    debugLog("Set tube to: ", cTubes.Selected)
+
+    return nil
 }
 
-func exitCmdMode(g *gocui.Gui, v *gocui.View) error {
+func ChangePage(g *gocui.Gui, d int) error {
     if cmdMode {
-        return toggleCmdMode(g, v)
+        return nil
+    }
+
+    debugLog("Changing page ", cTubes.Page, " by ", d)
+    if cTubes.Page < cTubes.Pages && d > 0 {
+        cTubes.Page ++
+    } else if cTubes.Page > 1 && d < 0 {
+        cTubes.Page --
+    }
+
+    if err := reloadTubes(g); err != nil {
+        return err
+    }
+
+    if err := reloadMenu(g); err != nil {
+        return err
     }
 
     return nil
 }
 
-func quit(g *gocui.Gui, v *gocui.View) error {
-    stop <- true
+func Help(v *gocui.View, _ []string) error {
+    debugLog("Showing command list")
 
-    return gocui.ErrQuit
+    PrintLine(v, "")
+    PrintLine(v, "help - Displays a list of commands")
+    PrintLine(v, "next <ready/delayed/buried> - Gets the next jobs of the given state")
+    PrintLine(v, "clear <ready/delayed/buried> - Clears all jobs of the given state")
+
+    return nil
+}
+
+func ClearTube(_ *gocui.View, a []string) error {
+    debugLog("Clearing ", a[0], " queue on tube ", cTubes.Selected)
+
+    return nil
+}
+
+func NextJob(_ *gocui.View, a []string) error {
+    debugLog("Getting next ", a[0], " job on tube ", cTubes.Selected)
+
+    return nil
 }

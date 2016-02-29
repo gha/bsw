@@ -37,8 +37,12 @@ func PrintTubeList(v *gocui.View) {
         }
 }
 
-func PrintCmd(v *gocui.View, line string) {
-    fmt.Fprintf(v, line)
+func PrintString(v *gocui.View, s string) {
+    fmt.Fprintf(v, s)
+}
+
+func PrintLine(v *gocui.View, line string) {
+    fmt.Fprintf(v, fmt.Sprintf("%s\n", line))
 }
 
 func PrintMenu(v *gocui.View) {
@@ -70,31 +74,6 @@ func PrintMenu(v *gocui.View) {
     }
 }
 
-func MoveTubeCursor(g *gocui.Gui, mx, my int) error {
-    tv, err := g.View("tubes")
-    if err != nil {
-        return err
-    }
-
-    cx, cy := tv.Cursor()
-    ny := cy + my
-
-    //Check the cursor isn't trying to move above the first tube or past the last tube
-    if ny < 1 || ny > len(cTubes.Conns) {
-        return nil
-    }
-
-    if err = tv.SetCursor(cx, ny); err != nil {
-        return err
-    }
-
-    //Set the selected tube to the currently highlighted row
-    cTubes.Selected = cTubes.Names[ny-1]
-    debugLog("Set tube to: ", cTubes.Selected)
-
-    return nil
-}
-
 func RefreshCursor(g *gocui.Gui) error {
     tv, err := g.View("tubes")
     if err != nil {
@@ -110,25 +89,6 @@ func RefreshCursor(g *gocui.Gui) error {
         if err = tv.SetCursor(0, len(cTubes.Conns)); err != nil {
             return err
         }
-    }
-
-    return nil
-}
-
-func ChangePage(g *gocui.Gui, d int) error {
-    debugLog("Changing page ", cTubes.Page, " by ", d)
-    if cTubes.Page < cTubes.Pages && d > 0 {
-        cTubes.Page ++
-    } else if cTubes.Page > 1 && d < 0 {
-        cTubes.Page --
-    }
-
-    if err := reloadTubes(g); err != nil {
-        return err
-    }
-
-    if err := reloadMenu(g); err != nil {
-        return err
     }
 
     return nil

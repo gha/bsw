@@ -56,7 +56,9 @@ func main() {
     }
     defer g.Close()
 
-    setKeyBindings(g)
+    if err := setKeyBindings(g); err != nil {
+        log.Fatal(err)
+    }
     debugLog("Set keybindings")
 
     g.SetLayout(setLayout)
@@ -114,40 +116,6 @@ func setLayout(g *gocui.Gui) error {
     }
 
     return nil
-}
-
-func setKeyBindings(g *gocui.Gui) {
-    if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
-        log.Fatal(err)
-    }
-
-    if err := g.SetKeybinding("", gocui.KeyArrowUp, gocui.ModNone, moveCursorUp); err != nil {
-        log.Fatal(err)
-    }
-
-    if err := g.SetKeybinding("", gocui.KeyArrowDown, gocui.ModNone, moveCursorDown); err != nil {
-        log.Fatal(err)
-    }
-
-    if err := g.SetKeybinding("", gocui.KeyCtrlT, gocui.ModNone, toggleCmdMode); err != nil {
-        log.Fatal(err)
-    }
-
-    if err := g.SetKeybinding("", gocui.KeyCtrlN, gocui.ModNone, nextPage); err != nil {
-        log.Fatal(err)
-    }
-
-    if err := g.SetKeybinding("", gocui.KeyCtrlP, gocui.ModNone, prevPage); err != nil {
-        log.Fatal(err)
-    }
-
-    if err := g.SetKeybinding("", gocui.KeyEnter, gocui.ModNone, runCmd); err != nil {
-        log.Fatal(err)
-    }
-
-    if err := g.SetKeybinding("", gocui.KeyEsc, gocui.ModNone, exitCmdMode); err != nil {
-        log.Fatal(err)
-    }
 }
 
 func reloadMenu(g *gocui.Gui) error {
