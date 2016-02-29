@@ -27,7 +27,7 @@ func setKeyBindings(g *gocui.Gui) error {
         return err
     }
 
-    if err := g.SetKeybinding("", gocui.KeyCtrlT, gocui.ModNone, toggleCmdMode); err != nil {
+    if err := g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, toggleCmdMode); err != nil {
         return err
     }
 

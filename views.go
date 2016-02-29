@@ -50,7 +50,7 @@ func PrintMenu(v *gocui.View) {
 
     menuItems := []interface{}{
         "Exit (Ctrl C)",
-        "Toggle Cmd Mode (Ctrl T)",
+        "Toggle Cmd Mode (Tab)",
     }
 
     if cTubes.Page < cTubes.Pages {
