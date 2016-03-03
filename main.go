@@ -98,6 +98,12 @@ func setLayout(g *gocui.Gui) error {
             return err
         }
 
+        //Initialise the view settings
+        v.Highlight  = true
+        v.Wrap       = true
+        v.Editable   = false
+        v.Autoscroll = false
+
         PrintTubeList(v)
 
         //Move the cursor to the first tube

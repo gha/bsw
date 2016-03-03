@@ -11,10 +11,6 @@ func PrintTubeList(v *gocui.View) {
         line := fmt.Sprintf("%-35s %-22s %-22s", "Tube", "ready/delayed/buried", "waiting/watching/using")
         fmt.Fprintln(v, line)
 
-        v.Highlight = true
-        v.Wrap      = true
-        v.Editable  = false
-
         //Reload the tube stats - will detect new tubes and drop removed tubes
         cTubes.UseAll()
 

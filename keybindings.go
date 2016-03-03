@@ -61,24 +61,29 @@ func prevPage(g *gocui.Gui, v *gocui.View) error {
 func toggleCmdMode(g *gocui.Gui, v *gocui.View) error {
     var nv string
 
+    tv, err := g.View("tubes")
+    if err != nil {
+        return err
+    }
+
     if !cmdMode {
         cmdMode = true
         g.Cursor = true
         nv = "menu"
 
-        //Clear the tube list for command responses
-        tv, err := g.View("tubes")
-        if err != nil {
-            return err
-        }
-
+        //Clear the tube list and set autoscroll for command responses
         tv.Clear()
+        tv.Autoscroll = true
 
         PrintLine(tv, fmt.Sprintf("Running commands on %s:\n", cTubes.Selected))
     } else {
         cmdMode = false
         g.Cursor = false
         nv = "tubes"
+
+        //Reset the view origin and disable autoscroll
+        tv.SetOrigin(0, 0)
+        tv.Autoscroll = false
 
         //Reload the tube list
         if err := reloadTubes(g); err != nil {
