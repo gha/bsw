@@ -74,6 +74,59 @@ func PrintMenu(v *gocui.View) {
     }
 }
 
+func MoveTubeCursor(g *gocui.Gui, mx, my int) error {
+    if cmdMode {
+        return nil
+    }
+
+    tv, err := g.View("tubes")
+    if err != nil {
+        return err
+    }
+
+    cx, cy := tv.Cursor()
+    ny := cy + my
+
+    //Check the cursor isn't trying to move above the first tube or past the last tube
+    if ny < 1 || ny > len(cTubes.Conns) {
+        return nil
+    }
+
+    if err = tv.SetCursor(cx, ny); err != nil {
+        return err
+    }
+
+    //Set the selected tube to the currently highlighted row
+    cTubes.SelectedIdx = ny-1
+    cTubes.Selected = cTubes.Names[cTubes.SelectedIdx]
+    debugLog("Set tube to: ", cTubes.Selected)
+
+    return nil
+}
+
+func ChangePage(g *gocui.Gui, d int) error {
+    if cmdMode {
+        return nil
+    }
+
+    debugLog("Changing page ", cTubes.Page, " by ", d)
+    if cTubes.Page < cTubes.Pages && d > 0 {
+        cTubes.Page ++
+    } else if cTubes.Page > 1 && d < 0 {
+        cTubes.Page --
+    }
+
+    if err := reloadTubes(g); err != nil {
+        return err
+    }
+
+    if err := reloadMenu(g); err != nil {
+        return err
+    }
+
+    return nil
+}
+
 func RefreshCursor(g *gocui.Gui) error {
     tv, err := g.View("tubes")
     if err != nil {

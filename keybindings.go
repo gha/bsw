@@ -128,6 +128,8 @@ func runCmd(g *gocui.Gui, v *gocui.View) error {
         }
     }
 
+    PrintLine(tv, "------------")
+
     return reloadMenu(g)
 }
 

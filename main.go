@@ -82,7 +82,10 @@ func cmdEditor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
     case key == gocui.KeySpace:
         v.EditWrite(' ')
     case key == gocui.KeyBackspace || key == gocui.KeyBackspace2:
-        v.EditDelete(true)
+        cx, _ := v.Cursor()
+        if cx > len(fmt.Sprintf(cmdPrefix, cTubes.Selected)) {
+            v.EditDelete(true)
+        }
     case key == gocui.KeyDelete:
         v.EditDelete(false)
     }
