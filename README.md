@@ -1,6 +1,6 @@
 #BSW
 
-A tool for monitoring local beanstalk queues
+A tool for monitoring beanstalk queues. Based on 'bsa' https://github.com/davidpersson/bsa
 
 ![bsw](https://cloud.githubusercontent.com/assets/5681893/13606694/e3fd8514-e544-11e5-9183-2b459f211e7d.jpg)
 
