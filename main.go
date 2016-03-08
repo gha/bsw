@@ -5,6 +5,7 @@ import (
     "log/syslog"
     "time"
     "flag"
+    "fmt"
     "github.com/jroimartin/gocui"
     "github.com/kr/beanstalk"
 )
@@ -18,7 +19,17 @@ var (
     refreshRate = flag.Int("refresh", 1, "Refresh rate of the tube list (seconds)")
     debug = flag.Bool("debug", false, "Enable debug logging")
     logWriter *syslog.Writer
+    cmdMode = false
 )
+
+const (
+    cmdPrefix = "(%s) : "
+)
+
+func init() {
+    //Set the inital page to 1
+    cTubes.Page = 1
+}
 
 func main() {
     var err error
@@ -45,11 +56,15 @@ func main() {
     }
     defer g.Close()
 
-    setKeyBindings(g)
+    if err := setKeyBindings(g); err != nil {
+        log.Fatal(err)
+    }
     debugLog("Set keybindings")
 
     g.SetLayout(setLayout)
     debugLog("Set layout")
+    g.Editor = gocui.EditorFunc(cmdEditor)
+    debugLog("Set editor")
     g.Cursor = true
     go watchTubes(g)
 
@@ -60,12 +75,34 @@ func main() {
     }
 }
 
+func cmdEditor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+    switch {
+    case ch != 0 && mod == 0:
+        v.EditWrite(ch)
+    case key == gocui.KeySpace:
+        v.EditWrite(' ')
+    case key == gocui.KeyBackspace || key == gocui.KeyBackspace2:
+        cx, _ := v.Cursor()
+        if cx > len(fmt.Sprintf(cmdPrefix, cTubes.Selected)) {
+            v.EditDelete(true)
+        }
+    case key == gocui.KeyDelete:
+        v.EditDelete(false)
+    }
+}
+
 func setLayout(g *gocui.Gui) error {
     maxX, maxY := g.Size()
     if v, err := g.SetView("tubes", 0, 0, maxX-1, maxY-3); err != nil {
         if err != gocui.ErrUnknownView {
             return err
         }
+
+        //Initialise the view settings
+        v.Highlight  = true
+        v.Wrap       = true
+        v.Editable   = false
+        v.Autoscroll = false
 
         PrintTubeList(v)
 
@@ -86,24 +123,6 @@ func setLayout(g *gocui.Gui) error {
     return nil
 }
 
-func setKeyBindings(g *gocui.Gui) {
-    if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
-        log.Fatal(err)
-    }
-
-    if err := g.SetKeybinding("", gocui.KeyArrowUp, gocui.ModNone, moveCursorUp); err != nil {
-        log.Fatal(err)
-    }
-
-    if err := g.SetKeybinding("", gocui.KeyArrowDown, gocui.ModNone, moveCursorDown); err != nil {
-        log.Fatal(err)
-    }
-
-    if err := g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, toggleUseTube); err != nil {
-        log.Fatal(err)
-    }
-}
-
 func reloadMenu(g *gocui.Gui) error {
     v, err := g.View("menu")
     if err != nil {
@@ -112,6 +131,13 @@ func reloadMenu(g *gocui.Gui) error {
 
     v.Clear()
     PrintMenu(v)
+
+    if cmdMode {
+        prefix := fmt.Sprintf(cmdPrefix, cTubes.Selected)
+        if err = v.SetCursor(len(prefix), 0); err != nil {
+            return err
+        }
+    }
 
     _, err = g.SetViewOnTop("menu")
 
@@ -139,13 +165,17 @@ func watchTubes(g *gocui.Gui) {
                 watch = false
                 return
             case <-time.After(time.Duration(*refreshRate) * time.Second):
-                watch = true
-                //Refresh tube list
-                g.Execute(func(g *gocui.Gui) error {
-                    return reloadTubes(g)
-                })
+                //Pause reloads while we're in cmd mode, this could cause weird issues
+                //with tubes disappearing when a command is run
+                if !cmdMode {
+                    watch = true
+                    //Refresh tube list
+                    g.Execute(func(g *gocui.Gui) error {
+                        return reloadTubes(g)
+                    })
 
-                _ = reloadMenu(g);
+                    _ = reloadMenu(g)
+                }
         }
     }
 }

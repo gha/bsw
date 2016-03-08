@@ -2,6 +2,8 @@ package main
 
 import (
     "fmt"
+    "math"
+    "strings"
     "github.com/jroimartin/gocui"
 )
 
@@ -9,15 +11,20 @@ func PrintTubeList(v *gocui.View) {
         line := fmt.Sprintf("%-35s %-22s %-22s", "Tube", "ready/delayed/buried", "waiting/watching/using")
         fmt.Fprintln(v, line)
 
-        v.Highlight = true
-        v.Wrap      = true
+        //Reload the tube stats - will detect new tubes and drop removed tubes
+        cTubes.UseAll()
 
-        if cTubes.All {
-            //Reload the tube stats - will detect new tubes and drop removed tubes
-            cTubes.UseAll()
+        //Calculate the size for paging
+        _, vy := v.Size()
+        cTubes.Pages = int(math.Ceil(float64(len(cTubes.Conns)) / float64(vy - 1)))
+        offset := vy * (cTubes.Page - 1)
+        limit := vy * cTubes.Page
+        if limit > len(cTubes.Conns) {
+            limit = len(cTubes.Conns)
         }
+        displayed := cTubes.Conns[offset:limit]
 
-        for _, tube := range cTubes.Conns {
+        for _, tube := range displayed {
             stats, _ := tube.Stats()
             jobStats := stats["current-jobs-ready"] + " / " + stats["current-jobs-delayed"] + " / " + stats["current-jobs-buried"]
             workerStats := stats["current-waiting"] + " / " + stats["current-watching"] + " / " + stats["current-using"]
@@ -26,41 +33,91 @@ func PrintTubeList(v *gocui.View) {
         }
 }
 
+func PrintString(v *gocui.View, s string) {
+    fmt.Fprintf(v, s)
+}
+
+func PrintLine(v *gocui.View, line string) {
+    fmt.Fprintf(v, fmt.Sprintf("%s\n", line))
+}
+
 func PrintMenu(v *gocui.View) {
-    tubeSelector := "Use Tube (Tab)"
-    if !cTubes.All {
-        tubeSelector = "Use All (Tab)"
+    v.Editable = true
+
+    menuItems := []interface{}{
+        "Exit (Ctrl C)",
+        "Toggle Cmd Mode (Tab)",
     }
 
-    line := fmt.Sprintf("%s | %s", "Exit (Ctrl C)", tubeSelector)
-    fmt.Fprintln(v, line)
+    if cTubes.Page < cTubes.Pages {
+        menuItems = append(menuItems, "Next Page (Ctrl N)")
+    }
+
+    if cTubes.Page > 1 {
+        menuItems = append(menuItems, "Prev Page (Ctrl P)")
+    }
+
+    if !cmdMode {
+        verbs := []string{}
+        for _, _ = range menuItems {
+            verbs = append(verbs, "%s")
+        }
+        line := fmt.Sprintf(strings.Join(verbs, " | "), menuItems...)
+        fmt.Fprintln(v, line)
+    } else {
+        prefix := fmt.Sprintf(cmdPrefix, cTubes.Selected)
+        fmt.Fprintln(v, prefix)
+    }
 }
 
 func MoveTubeCursor(g *gocui.Gui, mx, my int) error {
+    if cmdMode {
+        return nil
+    }
+
     tv, err := g.View("tubes")
     if err != nil {
         return err
     }
 
     cx, cy := tv.Cursor()
-    ox, oy := tv.Origin()
     ny := cy + my
 
-    //Check the cursor isn't trying to move above the first tube
-    if ny < 1 && oy == 0 {
-        return nil
-    }
-
-    //Check the cursor isn't trying to move past the last tube
-    if ny + oy > len(cTubes.Conns) && ny > cy {
+    //Check the cursor isn't trying to move above the first tube or past the last tube
+    if ny < 1 || ny > len(cTubes.Conns) {
         return nil
     }
 
     if err = tv.SetCursor(cx, ny); err != nil {
-        //If we've moved to an invalid point, update the origin
-        if err = tv.SetOrigin(ox, oy + my); err != nil {
-            return err
-        }
+        return err
+    }
+
+    //Set the selected tube to the currently highlighted row
+    cTubes.SelectedIdx = ny-1
+    cTubes.Selected = cTubes.Names[cTubes.SelectedIdx]
+    debugLog("Set tube to: ", cTubes.Selected)
+
+    return nil
+}
+
+func ChangePage(g *gocui.Gui, d int) error {
+    if cmdMode {
+        return nil
+    }
+
+    debugLog("Changing page ", cTubes.Page, " by ", d)
+    if cTubes.Page < cTubes.Pages && d > 0 {
+        cTubes.Page ++
+    } else if cTubes.Page > 1 && d < 0 {
+        cTubes.Page --
+    }
+
+    if err := reloadTubes(g); err != nil {
+        return err
+    }
+
+    if err := reloadMenu(g); err != nil {
+        return err
     }
 
     return nil
@@ -73,17 +130,12 @@ func RefreshCursor(g *gocui.Gui) error {
     }
 
     _, cy := tv.Cursor()
-    _, oy := tv.Origin()
 
-    if cy + oy > len(cTubes.Conns) {
-        debugLog("Resetting cursor: cy: ", cy, " oy: ", oy, " t: ", len(cTubes.Conns))
+    if cy > len(cTubes.Conns) {
+        debugLog("Resetting cursor position ", cy, " to ", len(cTubes.Conns))
 
         //Temporary fix for the cursor dropping off the bottom of the list
-        if err = tv.SetCursor(0, 1); err != nil {
-            return err
-        }
-
-        if err = tv.SetOrigin(0, 0); err != nil {
+        if err = tv.SetCursor(0, len(cTubes.Conns)); err != nil {
             return err
         }
     }
