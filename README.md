@@ -6,7 +6,7 @@ A tool for monitoring beanstalk queues. Based on 'bsa' https://github.com/davidp
 
 ## Install
 
-    $ go get github.com/george-infinity/bsw
+    $ go get github.com/gha/bsw
 
 ## Usage
 
