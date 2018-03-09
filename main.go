@@ -1,187 +1,97 @@
 package main
 
 import (
-    "log"
-    "log/syslog"
-    "time"
-    "flag"
-    "fmt"
-    "github.com/jroimartin/gocui"
-    "github.com/kr/beanstalk"
+	"flag"
+	"fmt"
+
+	"github.com/gizak/termui"
+	"github.com/kr/beanstalk"
 )
 
 var (
-    conn *beanstalk.Conn
-    cTubes Tubes
-    watch = false
-    stop = make(chan bool)
-    host = flag.String("host", "127.0.0.1:11300", "Beanstalk host address")
-    refreshRate = flag.Int("refresh", 1, "Refresh rate of the tube list (seconds)")
-    debug = flag.Bool("debug", false, "Enable debug logging")
-    logWriter *syslog.Writer
-    cmdMode = false
+	conn        *beanstalk.Conn
+	cTubes      Tubes
+	tubeTable   *termui.Table
+	host        = flag.String("host", "127.0.0.1:11300", "Beanstalk host address")
+	refreshRate = flag.Int("refresh", 1, "Refresh rate of the tube list (seconds)")
 )
-
-const (
-    cmdPrefix = "(%s) : "
-)
-
-func init() {
-    //Set the inital page to 1
-    cTubes.Page = 1
-}
 
 func main() {
-    var err error
+	flag.Parse()
 
-    logWriter, err = syslog.New(syslog.LOG_INFO, "bsw")
-    if err != nil {
-        log.Fatal(err)
-    }
-    log.SetOutput(logWriter)
+	err := termui.Init()
+	if err != nil {
+		panic(err)
+	}
 
-    flag.Parse()
+	defer termui.Close()
 
-    if conn, err = beanstalk.Dial("tcp", *host); err != nil {
-        log.Fatal(err)
-    }
-    debugLog("Connected to beanstalk")
+	registerEventHandlers()
+	tubeTable = generateTable()
 
-    //Use all tubes by default
-    cTubes.UseAll()
+	conn, err = beanstalk.Dial("tcp", *host)
+	if err != nil {
+		panic(err)
+	}
 
-    g := gocui.NewGui()
-    if err := g.Init(); err != nil {
-        log.Fatal(err)
-    }
-    defer g.Close()
+	updateTubes()
 
-    if err := setKeyBindings(g); err != nil {
-        log.Fatal(err)
-    }
-    debugLog("Set keybindings")
-
-    g.SetLayout(setLayout)
-    debugLog("Set layout")
-    g.Editor = gocui.EditorFunc(cmdEditor)
-    debugLog("Set editor")
-    g.Cursor = true
-    go watchTubes(g)
-
-    debugLog("Starting main loop")
-
-    if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
-        log.Fatal(err)
-    }
+	termui.Loop()
 }
 
-func cmdEditor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
-    switch {
-    case ch != 0 && mod == 0:
-        v.EditWrite(ch)
-    case key == gocui.KeySpace:
-        v.EditWrite(' ')
-    case key == gocui.KeyBackspace || key == gocui.KeyBackspace2:
-        cx, _ := v.Cursor()
-        if cx > len(fmt.Sprintf(cmdPrefix, cTubes.Selected)) {
-            v.EditDelete(true)
-        }
-    case key == gocui.KeyDelete:
-        v.EditDelete(false)
-    }
+func registerEventHandlers() {
+	termui.Handle("/sys/kbd/q", func(termui.Event) {
+		termui.StopLoop()
+	})
+
+	termui.Handle("/sys/kbd/C-c", func(termui.Event) {
+		termui.StopLoop()
+	})
+
+	termui.Handle(fmt.Sprintf("/timer/%ds", *refreshRate), func(e termui.Event) {
+		updateTubes()
+	})
 }
 
-func setLayout(g *gocui.Gui) error {
-    maxX, maxY := g.Size()
-    if v, err := g.SetView("tubes", 0, 0, maxX-1, maxY-3); err != nil {
-        if err != gocui.ErrUnknownView {
-            return err
-        }
+func generateTable() *termui.Table {
+	tubeTable = termui.NewTable()
+	tubeTable.Rows = [][]string{}
+	tubeTable.FgColor = termui.ColorWhite
+	tubeTable.X = 0
+	tubeTable.Y = 0
+	tubeTable.Width = termui.TermWidth()
+	tubeTable.Height = termui.TermHeight()
+	tubeTable.Border = true
+	tubeTable.Separator = false
 
-        //Initialise the view settings
-        v.Highlight  = true
-        v.Wrap       = true
-        v.Editable   = false
-        v.Autoscroll = false
+	termui.Render(tubeTable)
 
-        PrintTubeList(v)
-
-        //Move the cursor to the first tube
-        if err = MoveTubeCursor(g, 0, 1); err != nil {
-            return err
-        }
-    }
-
-    if v, err := g.SetView("menu", 0, maxY-3, maxX-1, maxY-1); err != nil {
-        if err != gocui.ErrUnknownView {
-            return err
-        }
-
-        PrintMenu(v)
-    }
-
-    return nil
+	return tubeTable
 }
 
-func reloadMenu(g *gocui.Gui) error {
-    v, err := g.View("menu")
-    if err != nil {
-        return err
-    }
+func updateTubes() {
+	if err := cTubes.UseAll(); err != nil {
+		panic(err)
+	}
 
-    v.Clear()
-    PrintMenu(v)
+	// Update tubes
+	rows := [][]string{
+		[]string{"Tube", "ready/delayed/buried", "waiting/watching/using"},
+	}
 
-    if cmdMode {
-        prefix := fmt.Sprintf(cmdPrefix, cTubes.Selected)
-        if err = v.SetCursor(len(prefix), 0); err != nil {
-            return err
-        }
-    }
+	for _, tube := range cTubes.Conns {
+		stats, err := tube.Stats()
+		if err != nil {
+			panic("Error loading stats for " + tube.Name + ": " + err.Error())
+		}
 
-    _, err = g.SetViewOnTop("menu")
+		jobStats := stats["current-jobs-ready"] + " / " + stats["current-jobs-delayed"] + " / " + stats["current-jobs-buried"]
+		workerStats := stats["current-waiting"] + " / " + stats["current-watching"] + " / " + stats["current-using"]
 
-    return err
-}
+		row := []string{tube.Name, jobStats, workerStats}
+		rows = append(rows, row)
+	}
 
-func reloadTubes(g *gocui.Gui) error {
-    v, err := g.View("tubes")
-    if err != nil {
-        return err
-    }
-
-    //Clear the current tube list
-    v.Clear()
-    //Print the new tube list
-    PrintTubeList(v)
-    //Refresh the cursor
-    return RefreshCursor(g)
-}
-
-func watchTubes(g *gocui.Gui) {
-    for {
-        select {
-            case <-stop:
-                watch = false
-                return
-            case <-time.After(time.Duration(*refreshRate) * time.Second):
-                //Pause reloads while we're in cmd mode, this could cause weird issues
-                //with tubes disappearing when a command is run
-                if !cmdMode {
-                    watch = true
-                    //Refresh tube list
-                    g.Execute(func(g *gocui.Gui) error {
-                        return reloadTubes(g)
-                    })
-
-                    _ = reloadMenu(g)
-                }
-        }
-    }
-}
-
-func debugLog(s ...interface{}) {
-    if *debug {
-        log.Print(s...)
-    }
+	tubeTable.Rows = rows
+	termui.Render(tubeTable)
 }

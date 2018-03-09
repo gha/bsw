@@ -3,31 +3,31 @@
 package main
 
 import (
-    "github.com/kr/beanstalk"
+	"github.com/kr/beanstalk"
 )
 
 type Tubes struct {
-    Names       []string
-    Conns       []beanstalk.Tube
-    SelectedIdx int
-    Selected    string
-    Pages       int
-    Page        int
+	Names []string
+	Conns []beanstalk.Tube
 }
 
-func (t *Tubes) UseAll() {
-    t.Reset()
+func (t *Tubes) UseAll() error {
+	t.Reset()
 
-    allTubes, _ := conn.ListTubes()
-    for _, tube := range allTubes {
-        t.Names = append(t.Names, tube)
-        t.Conns = append(t.Conns, beanstalk.Tube{conn, tube})
-    }
+	allTubes, err := conn.ListTubes()
+	if err != nil {
+		return err
+	}
 
-    return
+	for _, tube := range allTubes {
+		t.Names = append(t.Names, tube)
+		t.Conns = append(t.Conns, beanstalk.Tube{conn, tube})
+	}
+
+	return nil
 }
 
 func (t *Tubes) Reset() {
-    t.Names = t.Names[:0]
-    t.Conns = t.Conns[:0]
+	t.Names = t.Names[:0]
+	t.Conns = t.Conns[:0]
 }
